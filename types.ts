@@ -61,4 +61,4 @@ export interface JobPosting {
   postedAt: number;
 }
 
-export type AppStep = 'landing' | 'login' | 'admin' | 'applicant-form' | 'resume-builder' | 'interview' | 'thank-you';
+export type AppStep = 'landing' | 'login' | 'admin' |  'auth' | 'applicant-form' | 'resume-choice' | 'resume-builder' | 'interview' | 'thank-you';

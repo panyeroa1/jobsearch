@@ -5,6 +5,8 @@ import LandingPage from './components/LandingPage';
 import AdminLogin from './components/AdminLogin';
 import AdminPortal from './components/AdminPortal';
 import ResumeBuilder from './components/ResumeBuilder';
+import AuthPage from './components/AuthPage';
+import ResumeChoicePage from './components/ResumeChoicePage';
 import { AVATAR_URL, VOICE_OPTIONS } from './constants';
 import { ApplicantData, AppStep } from './types';
 import { supabase } from './services/supabase';
@@ -51,7 +53,7 @@ function App() {
 
             // Route based on resume completion
             const isResumeComplete = applicant.photo_url && applicant.resume_data;
-            setStep(isResumeComplete ? 'interview' : 'resume-builder');
+            setStep(isResumeComplete ? 'interview' : 'resume-choice');
           }
         }
       } catch (error) {
@@ -74,9 +76,42 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const handleFormSubmit = (data: ApplicantData) => {
-    setApplicantData(data);
-    setStep('resume-builder'); // Transition to Resume Builder
+  const handleAuthSuccess = async (userId: string) => {
+    // Fetch applicant data after auth
+    try {
+      const { data: applicant, error } = await supabase
+        .from('applicants')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+      if (applicant && !error) {
+        const mappedData: ApplicantData = {
+          id: applicant.id,
+          name: applicant.name || '',
+          email: applicant.email || '',
+          role: applicant.role || '',
+          experience: applicant.experience || '',
+          photoUrl: applicant.photo_url,
+          phone: applicant.resume_data?.phone,
+          address: applicant.resume_data?.address,
+          education: applicant.resume_data?.education,
+          skills: applicant.resume_data?.skills,
+          summary: applicant.resume_data?.summary,
+          createdAt: applicant.created_at ? new Date(applicant.created_at).getTime() : Date.now()
+        };
+        setApplicantData(mappedData);
+      }
+    } catch (error) {
+      console.error('Error fetching applicant:', error);
+    }
+    setStep('resume-choice');
+  };
+
+  const handleResumeChoice = (choice: 'upload' | 'build', resumeData?: any) => {
+    // If upload, we could pre-populate data here
+    // For now, just navigate to resume builder
+    setStep('resume-builder');
   };
 
   const handleResumeComplete = (data: ApplicantData) => {
@@ -133,7 +168,7 @@ function App() {
   if (step === 'landing') {
       return (
           <LandingPage 
-            onFindJob={() => setStep('applicant-form')}
+            onFindJob={() => setStep('auth')}
             onAdminLogin={() => setStep('login')}
           />
       );
@@ -156,8 +191,17 @@ function App() {
       );
   }
 
+  if (step === 'auth') {
+    return <AuthPage onSuccess={handleAuthSuccess} onBack={() => setStep('landing')} />;
+  }
+
+  if (step === 'resume-choice' && applicantData) {
+    return <ResumeChoicePage onChoice={handleResumeChoice} onBack={() => setStep('auth')} />;
+  }
+
   if (step === 'applicant-form') {
-    return <ApplicantForm onSubmit={handleFormSubmit} onBack={() => setStep('landing')} />;
+    // This is now deprecated/optional - keeping for backwards compat if needed
+    return null;
   }
 
   if (step === 'resume-builder' && applicantData) {
