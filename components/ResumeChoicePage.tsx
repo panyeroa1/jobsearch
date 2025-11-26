@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { supabase } from '../services/supabase';
+import { extractTextFromPDF, extractPhotoFromPDF, parseResumeWithAI, ParsedResume } from '../services/ollamaCloud';
 
 interface ResumeChoicePageProps {
-  onChoice: (choice: 'upload' | 'build', resumeData?: any) => void;
+  onChoice: (choice: 'upload' | 'build', resumeData?: ParsedResume & { photoBlob?: Blob }) => void;
   onBack: () => void;
 }
 
 const ResumeChoicePage: React.FC<ResumeChoicePageProps> = ({ onChoice, onBack }) => {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState('');
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -25,17 +27,33 @@ const ResumeChoicePage: React.FC<ResumeChoicePageProps> = ({ onChoice, onBack })
     setError(null);
 
     try {
-      // For now, we'll just extract basic text from the file
-      // In a production app, you'd use libraries like pdfjs-dist or mammoth for proper parsing
-      const text = await file.text();
+      // Step 1: Extract text from PDF
+      setProgress('Extracting text from resume...');
+      let text = '';
       
-      // Basic extraction - in reality you'd want more sophisticated parsing
-      const resumeData = {
-        rawText: text,
-        fileName: file.name
-      };
+      if (file.type === 'application/pdf') {
+        text = await extractTextFromPDF(file);
+      } else {
+        text = await file.text();
+      }
 
-      // Upload file to Supabase storage for record keeping
+      if (!text || text.trim().length < 50) {
+        throw new Error('Could not extract sufficient text from file. Please try a different format or build manually.');
+      }
+
+      // Step 2: Parse with AI
+      setProgress('Analyzing resume with AI...');
+      const parsedData = await parseResumeWithAI(text);
+
+      // Step 3: Extract photo (PDF only)
+      let photoBlob: Blob | null = null;
+      if (file.type === 'application/pdf') {
+        setProgress('Extracting profile photo...');
+        photoBlob = await extractPhotoFromPDF(file);
+      }
+
+      // Step 4: Upload original file to Supabase storage
+      setProgress('Saving to cloud...');
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const fileExt = file.name.split('.').pop();
@@ -46,12 +64,18 @@ const ResumeChoicePage: React.FC<ResumeChoicePageProps> = ({ onChoice, onBack })
           .upload(fileName, file);
       }
 
-      onChoice('upload', resumeData);
+      // Step 5: Pass to parent with parsed data
+      setProgress('Complete!');
+      onChoice('upload', {
+        ...parsedData,
+        photoBlob: photoBlob || undefined
+      });
     } catch (err: any) {
       console.error('File upload error:', err);
-      setError('Failed to process file. Please try again.');
+      setError(err.message || 'Failed to process file. Please try manual entry.');
     } finally {
       setUploading(false);
+      setProgress('');
     }
   };
 
@@ -109,15 +133,15 @@ const ResumeChoicePage: React.FC<ResumeChoicePageProps> = ({ onChoice, onBack })
                 <div className="w-full">
                   <div className="px-6 py-3 bg-emerald-600/20 border border-emerald-500/50 rounded-xl text-emerald-400 font-medium group-hover:bg-emerald-600/30 transition-colors">
                     {uploading ? (
-                      <div className="flex items-center justify-center gap-2">
+                      <div className="flex flex-col items-center justify-center gap-2">
                         <div className="w-5 h-5 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin"></div>
-                        Processing...
+                        <span className="text-xs">{progress || 'Processing...'}</span>
                       </div>
                     ) : (
                       'Click to Upload'
                     )}
                   </div>
-                  <p className="text-xs text-gray-500 mt-3">Supports PDF, DOCX, TXT</p>
+                  <p className="text-xs text-gray-500 mt-3">Supports PDF, DOCX, TXT • AI-powered extraction</p>
                 </div>
               </div>
             </div>

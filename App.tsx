@@ -108,9 +108,46 @@ function App() {
     setStep('resume-choice');
   };
 
-  const handleResumeChoice = (choice: 'upload' | 'build', resumeData?: any) => {
-    // If upload, we could pre-populate data here
-    // For now, just navigate to resume builder
+  const handleResumeChoice = async (choice: 'upload' | 'build', resumeData?: any) => {
+    if (choice === 'upload' && resumeData && applicantData) {
+      let photoUrl = applicantData.photoUrl;
+
+      // Upload photo if extracted from PDF
+      if (resumeData.photoBlob) {
+        try {
+          const fileName = `avatar_${applicantData.id}_${Date.now()}.jpg`;
+          const { error } = await supabase.storage
+            .from('resumes')
+            .upload(fileName, resumeData.photoBlob);
+          
+          if (!error) {
+            const { data } = supabase.storage
+              .from('resumes')
+              .getPublicUrl(fileName);
+            photoUrl = data.publicUrl;
+          }
+        } catch (e) {
+          console.error('Error uploading extracted photo:', e);
+        }
+      }
+
+      // Merge AI parsed data with existing applicant data
+      const updatedData: ApplicantData = {
+        ...applicantData,
+        name: resumeData.name || applicantData.name,
+        email: resumeData.email || applicantData.email,
+        role: resumeData.role || applicantData.role,
+        experience: resumeData.experience || applicantData.experience,
+        phone: resumeData.phone || applicantData.phone,
+        address: resumeData.location || applicantData.address,
+        summary: resumeData.summary || applicantData.summary,
+        skills: resumeData.skills || applicantData.skills,
+        education: resumeData.education || applicantData.education,
+        photoUrl: photoUrl
+      };
+
+      setApplicantData(updatedData);
+    }
     setStep('resume-builder');
   };
 
