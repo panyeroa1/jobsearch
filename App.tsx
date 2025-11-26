@@ -4,6 +4,7 @@ import ApplicantForm from './components/ApplicantForm';
 import LandingPage from './components/LandingPage';
 import AdminLogin from './components/AdminLogin';
 import AdminPortal from './components/AdminPortal';
+import ResumeBuilder from './components/ResumeBuilder';
 import { AVATAR_URL, VOICE_OPTIONS } from './constants';
 import { ApplicantData, AppStep } from './types';
 
@@ -15,7 +16,12 @@ function App() {
 
   const handleFormSubmit = (data: ApplicantData) => {
     setApplicantData(data);
-    setStep('interview'); // Transition state to interview setup
+    setStep('resume-builder'); // Transition to Resume Builder
+  };
+
+  const handleResumeComplete = (data: ApplicantData) => {
+    setApplicantData(data);
+    setStep('interview'); // Transition to Interview
   };
 
   const startCall = async () => {
@@ -80,6 +86,16 @@ function App() {
 
   if (step === 'applicant-form') {
     return <ApplicantForm onSubmit={handleFormSubmit} onBack={() => setStep('landing')} />;
+  }
+
+  if (step === 'resume-builder' && applicantData) {
+      return (
+          <ResumeBuilder 
+            applicantData={applicantData}
+            onNext={handleResumeComplete}
+            onBack={() => setStep('applicant-form')}
+          />
+      );
   }
 
   // Interview Pre-check
