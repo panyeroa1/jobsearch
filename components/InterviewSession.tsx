@@ -12,6 +12,7 @@ interface InterviewSessionProps {
 
 const InterviewSession: React.FC<InterviewSessionProps> = ({ onEndCall, applicantData, voiceName }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const barsRef = useRef<(HTMLDivElement | null)[]>([]);
   const [micVolume, setMicVolume] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
@@ -112,17 +113,28 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({ onEndCall, applican
       )
   }
 
+  useEffect(() => {
+      barsRef.current.forEach((bar, index) => {
+          if (bar) {
+              const i = index + 1;
+              const height = `${Math.min(100, Math.max(20, micVolume * 100 * (i * 0.5)))}%`;
+              bar.style.setProperty('--bar-height', height);
+          }
+      });
+  }, [micVolume]);
+
   return (
     <div className="relative w-full h-full flex flex-col bg-gray-900">
       
       {/* --- Main Avatar View (Beatrice) --- */}
       <div className="flex-1 relative flex items-center justify-center overflow-hidden">
-        <div 
-            className="absolute inset-0 bg-cover bg-center"
-            style={{ backgroundImage: `url(${OFFICE_BACKGROUND_URL})` }}
-        >
+        <img 
+            src={OFFICE_BACKGROUND_URL}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover"
+        />
           <div className="absolute inset-0 bg-gray-900/30 backdrop-blur-[2px]"></div>
-        </div>
+
         
         <div className="relative z-10 flex flex-col items-center">
             <div className={`relative w-40 h-40 sm:w-56 sm:h-56 rounded-full border-4 shadow-2xl overflow-hidden transition-all duration-300 ${isAiSpeaking ? 'border-emerald-500 speaking-ring' : 'border-gray-700'}`}>
@@ -153,8 +165,8 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({ onEndCall, applican
                     {[1, 2, 3].map(i => (
                         <div 
                             key={i} 
-                            className="w-1 bg-green-500 rounded-full transition-all duration-75"
-                            style={{ height: `${Math.min(100, Math.max(20, micVolume * 100 * (i * 0.5)))}%` }}
+                            ref={el => { barsRef.current[i-1] = el; }}
+                            className="w-1 bg-green-500 rounded-full transition-all duration-75 h-[var(--bar-height)]"
                         />
                     ))}
                 </div>
@@ -163,7 +175,7 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({ onEndCall, applican
       </div>
 
       {/* --- Controls --- */}
-      <div className="bg-gray-800/90 backdrop-blur-md p-6 rounded-t-3xl border-t border-gray-700 safe-area-bottom">
+      <div className="bg-gray-800/90 backdrop-blur-md p-6 rounded-t-3xl border-t border-gray-700 safe-area-bottom md:hidden">
         <div className="flex justify-center items-center gap-8">
             <button 
                 onClick={() => setIsMuted(!isMuted)}
@@ -189,10 +201,44 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({ onEndCall, applican
             <button 
                 onClick={handleEndCall}
                 className="p-5 rounded-full bg-red-500 hover:bg-red-600 text-white shadow-lg transform hover:scale-105 transition-all"
+                title="End Call"
+                aria-label="End Call"
             >
                 <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 8l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M5 3a2 2 0 00-2 2v1c0 8.284 6.716 15 15 15h1a2 2 0 002-2v-3.28a1 1 0 00-.684-.948l-4.493-1.498a1 1 0 00-1.21.502l-1.13 2.257a11.042 11.042 0 01-5.516-5.517l2.257-1.128a1 1 0 00.502-1.21L9.228 3.683A1 1 0 008.279 3H5z" /></svg>
             </button>
         </div>
+      </div>
+
+      {/* --- Desktop Floating Controls --- */}
+      <div className="hidden md:flex fixed bottom-8 left-1/2 transform -translate-x-1/2 items-center gap-6 z-50">
+        <button 
+            onClick={() => setIsMuted(!isMuted)}
+            className={`p-6 rounded-full shadow-2xl transition-all transform hover:scale-110 ${isMuted ? 'bg-red-500 text-white' : 'bg-indigo-600 text-white'}`}
+        >
+            {isMuted ? (
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3l18 18" /></svg>
+            ) : (
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+            )}
+        </button>
+
+        <button
+            onClick={handleRaiseHand}
+            className="p-4 rounded-full bg-gray-700/80 hover:bg-amber-500 text-white backdrop-blur-md shadow-xl transition-all"
+            title="I have a question"
+        >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11" />
+            </svg>
+        </button>
+
+        <button 
+            onClick={handleEndCall}
+            className="p-4 rounded-full bg-gray-700/80 hover:bg-red-600 text-white backdrop-blur-md shadow-xl transition-all"
+            title="End Call"
+        >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 8l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M5 3a2 2 0 00-2 2v1c0 8.284 6.716 15 15 15h1a2 2 0 002-2v-3.28a1 1 0 00-.684-.948l-4.493-1.498a1 1 0 00-1.21.502l-1.13 2.257a11.042 11.042 0 01-5.516-5.517l2.257-1.128a1 1 0 00.502-1.21L9.228 3.683A1 1 0 008.279 3H5z" /></svg>
+        </button>
       </div>
     </div>
   );

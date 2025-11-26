@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>API Key Generator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root {
+      --bg: #020617;
+      --bg-alt: #020617;
+      --card-bg: rgba(15, 23, 42, 0.9);
+      --border: rgba(148, 163, 184, 0.2);
+      --accent: #38bdf8;
+      --accent-soft: rgba(56, 189, 248, 0.15);
+      --accent-strong: #0ea5e9;
+      --accent-muted: #64748b;
+      --text: #e5e7eb;
+      --text-soft: #9ca3af;
+      --error: #f97373;
+      --radius-lg: 18px;
+      --radius-md: 12px;
+      --shadow-soft: 0 20px 45px rgba(15, 23, 42, 0.9);
+      --transition-fast: 0.15s ease-out;
+      --transition-med: 0.25s ease-out;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+        "Inter", sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 10% 10%, rgba(59, 130, 246, 0.22), transparent 55%),
+        radial-gradient(circle at 90% 90%, rgba(56, 189, 248, 0.18), transparent 55%),
+        radial-gradient(circle at 0% 100%, rgba(8, 47, 73, 0.55), transparent 60%),
+        var(--bg);
+    }
+
+    .shell {
+      width: 100%;
+      max-width: 820px;
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(15, 23, 42, 0.9));
+      border-radius: 28px;
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      box-shadow: var(--shadow-soft);
+      overflow: hidden;
+      position: relative;
+      -webkit-backdrop-filter: blur(18px);
+      backdrop-filter: blur(18px);
+    }
+
+    .shell::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 0% 0%, rgba(56, 189, 248, 0.16), transparent 55%),
+        radial-gradient(circle at 100% 0%, rgba(59, 130, 246, 0.12), transparent 55%);
+      opacity: 0.7;
+      pointer-events: none;
+      mix-blend-mode: screen;
+    }
+
+    .shell-inner {
+      position: relative;
+      z-index: 1;
+      padding: 22px 24px 24px;
+    }
+
+    @media (min-width: 768px) {
+      .shell-inner {
+        padding: 26px 30px 28px;
+      }
+    }
+
+    .shell-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .shell-title-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .badge-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 2px;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      border-radius: 999px;
+      padding: 3px 9px;
+      border: 1px solid rgba(148, 163, 184, 0.5);
+      color: var(--text-soft);
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: radial-gradient(circle at 0 0, rgba(148, 163, 184, 0.16), transparent 60%);
+    }
+
+    .badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: #22c55e;
+      box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.22);
+    }
+
+    .shell-title {
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .shell-title span.highlight {
+      background: linear-gradient(135deg, #38bdf8, #a855f7);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .shell-subtitle {
+      font-size: 13px;
+      color: var(--text-soft);
+    }
+
+    .shell-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 11px;
+      color: var(--text-soft);
+      background: radial-gradient(circle at 0 0, rgba(15, 23, 42, 0.95), rgba(15, 23, 42, 0.9));
+      padding: 8px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.22);
+    }
+
+    .shell-info-pill {
+      padding: 3px 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      background: rgba(15, 23, 42, 0.9);
+    }
+
+    .shell-info span.muted {
+      color: var(--accent-muted);
+    }
+
+    .engine {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 18px;
+      margin-top: 10px;
+    }
+
+    @media (max-width: 768px) {
+      .engine {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel {
+      background: radial-gradient(circle at 0 0, rgba(15, 23, 42, 0.95), rgba(15, 23, 42, 0.98));
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border);
+      padding: 16px 14px 14px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .panel::before {
+      content: "";
+      position: absolute;
+      inset: -60%;
+      background:
+        radial-gradient(circle at 0 0, rgba(56, 189, 248, 0.12), transparent 60%),
+        radial-gradient(circle at 100% 100%, rgba(129, 140, 248, 0.12), transparent 60%);
+      opacity: 0.45;
+      mix-blend-mode: soft-light;
+      pointer-events: none;
+    }
+
+    .panel-inner {
+      position: relative;
+      z-index: 1;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .panel-title {
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--accent-muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .panel-title-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+
+    .panel-meta {
+      font-size: 11px;
+      color: var(--text-soft);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .pill {
+      font-size: 10px;
+      border-radius: 999px;
+      padding: 3px 7px;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      color: var(--text-soft);
+      background: rgba(15, 23, 42, 0.9);
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      margin-bottom: 6px;
+      color: var(--text-soft);
+    }
+
+    .field {
+      margin-bottom: 12px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 120px;
+      resize: vertical;
+      background: radial-gradient(circle at 0 0, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.96));
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      padding: 10px 11px;
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.45;
+      outline: none;
+      transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+    }
+
+    textarea::placeholder {
+      color: rgba(148, 163, 184, 0.7);
+    }
+
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.35);
+      background: radial-gradient(circle at 0 0, rgba(15, 23, 42, 1), rgba(15, 23, 42, 0.98));
+    }
+
+    textarea[readonly] {
+      cursor: pointer;
+      -webkit-user-select: all;
+      user-select: all;
+    }
+
+    .hint-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      gap: 8px;
+    }
+
+    .hint {
+      font-size: 11px;
+      color: var(--text-soft);
+    }
+
+    .hint span {
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    .counter {
+      font-size: 11px;
+      color: var(--text-soft);
+    }
+
+    .actions-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .left-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .secondary-pill {
+      font-size: 11px;
+      color: var(--accent-muted);
+      background: rgba(15, 23, 42, 0.9);
+      border-radius: 999px;
+      padding: 4px 8px;
+      border: 1px dashed rgba(148, 163, 184, 0.5);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .secondary-pill span {
+      color: var(--accent);
+    }
+
+    .btn {
+      appearance: none;
+      border: 0;
+      outline: 0;
+      border-radius: 999px;
+      padding: 8px 18px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: radial-gradient(circle at 0 0, var(--accent-strong), #4f46e5);
+      color: #0b1120;
+      box-shadow: 0 12px 30px rgba(56, 189, 248, 0.35);
+      transition: transform var(--transition-fast), box-shadow var(--transition-fast), filter var(--transition-fast), background var(--transition-med);
+      white-space: nowrap;
+    }
+
+    .btn span.icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.85);
+      color: #e0f2fe;
+      font-size: 11px;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 16px 34px rgba(56, 189, 248, 0.45);
+      filter: brightness(1.05);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.85);
+      filter: brightness(0.98);
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: default;
+      box-shadow: none;
+      transform: none;
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-soft);
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.45);
+      padding: 6px 11px;
+      font-size: 11px;
+      box-shadow: none;
+      gap: 6px;
+    }
+
+    .btn-ghost span.icon {
+      width: 14px;
+      height: 14px;
+      background: rgba(15, 23, 42, 0.9);
+      font-size: 9px;
+    }
+
+    .btn-ghost:hover {
+      box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.6);
+      transform: none;
+      filter: none;
+      background: rgba(15, 23, 42, 0.9);
+    }
+
+    .btn-ghost:active {
+      transform: translateY(1px);
+      box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.7);
+    }
+
+    .status-strip {
+      margin-top: 10px;
+      font-size: 11px;
+      color: var(--text-soft);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .status-strip span.accent {
+      color: var(--accent);
+    }
+
+    .status-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-indicator {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.8);
+      position: relative;
+    }
+
+    .status-indicator::after {
+      content: "";
+      position: absolute;
+      inset: 1px;
+      border-radius: inherit;
+      background: #22c55e;
+      box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.35);
+    }
+
+    .toast {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      background: rgba(15, 23, 42, 0.95);
+      border-radius: 999px;
+      padding: 8px 14px;
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      font-size: 11px;
+      color: var(--text-soft);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.95);
+      opacity: 0;
+      transform: translateY(8px);
+      pointer-events: none;
+      transition: opacity var(--transition-med), transform var(--transition-med);
+      z-index: 20;
+    }
+
+    .toast.visible {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    .toast-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: var(--accent);
+    }
+
+    .toast span strong {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .error {
+      color: var(--error);
+    }
+
+    .mono {
+      font-family: "JetBrains Mono", "SF Mono", Menlo, Monaco, Consolas, monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="shell-inner">
+      <div class="shell-header">
+        <div class="shell-title-group">
+          <div class="badge-row">
+            <div class="badge">
+              <span class="badge-dot"></span>
+              Generator
+            </div>
+            <div class="badge">
+              Secure
+            </div>
+          </div>
+          <div class="shell-title">
+            API Key <span class="highlight">Generator</span>
+          </div>
+          <div class="shell-subtitle">
+            Securely encode your API keys and secrets for deployment.
+          </div>
+        </div>
+        <div class="shell-info">
+          <div class="shell-info-pill">
+            Client-side only
+          </div>
+          <span class="muted">No network calls. Nothing leaves this page.</span>
+        </div>
+      </div>
+
+      <div class="engine">
+        <div class="panel">
+          <div class="panel-inner">
+            <div class="panel-header">
+              <div class="panel-title">
+                <span class="panel-title-dot"></span>
+                Input
+              </div>
+              <div class="panel-meta">
+                <span class="pill mono">UTF-8</span>
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="input">Source Key</label>
+              <textarea
+                id="input"
+                spellcheck="false"
+                placeholder="Enter API Key..."
+              ></textarea>
+            </div>
+
+            <div class="hint-row">
+              <div class="hint">
+                Press <span>Enter</span> while holding <span>Ctrl</span> or <span>⌘</span> to encode.
+              </div>
+              <div class="counter" id="inputCounter">0 chars</div>
+            </div>
+
+            <div class="actions-row">
+              <div class="left-actions">
+                <div class="secondary-pill">
+                  Mode: <span>Encode → Base64</span>
+                </div>
+              </div>
+              <button class="btn" id="encodeBtn">
+                <span class="icon">⏵</span>
+                Create API Key
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-inner">
+            <div class="panel-header">
+              <div class="panel-title">
+                <span class="panel-title-dot"></span>
+                Output
+              </div>
+              <div class="panel-meta">
+                <span class="pill mono">Base64</span>
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="output">Base64 string</label>
+              <textarea
+                id="output"
+                spellcheck="false"
+                readonly
+                placeholder="Encoded result will appear here."
+              ></textarea>
+            </div>
+
+            <div class="hint-row">
+              <div class="hint" id="outputHint">
+                Click the output box to select all.
+              </div>
+              <div class="counter" id="outputCounter">0 chars</div>
+            </div>
+
+            <div class="actions-row">
+              <div class="left-actions">
+                <button class="btn btn-ghost" id="copyBtn" disabled>
+                  <span class="icon">⧉</span>
+                  Copy output
+                </button>
+              </div>
+              <div class="status-strip">
+                <span class="accent mono" id="statusText">Ready</span>
+                <div class="status-right">
+                  <div class="status-indicator"></div>
+                  <span>Local computation</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast">
+    <div class="toast-dot"></div>
+    <span><strong>Copied</strong> Base64 output to clipboard.</span>
+  </div>
+
+  <script>
+    const inputEl = document.getElementById("input");
+    const outputEl = document.getElementById("output");
+    const encodeBtn = document.getElementById("encodeBtn");
+    const copyBtn = document.getElementById("copyBtn");
+    const toastEl = document.getElementById("toast");
+    const inputCounterEl = document.getElementById("inputCounter");
+    const outputCounterEl = document.getElementById("outputCounter");
+    const statusTextEl = document.getElementById("statusText");
+    const outputHintEl = document.getElementById("outputHint");
+
+    function updateCounters() {
+      inputCounterEl.textContent = (inputEl.value || "").length + " chars";
+      outputCounterEl.textContent = (outputEl.value || "").length + " chars";
+      copyBtn.disabled = !outputEl.value;
+    }
+
+    function setStatus(text, isError) {
+      statusTextEl.textContent = text;
+      statusTextEl.classList.toggle("error", !!isError);
+    }
+
+    function encodeToBase64(value) {
+      try {
+        const utf8Bytes = new TextEncoder().encode(value);
+        let binary = "";
+        utf8Bytes.forEach(function (b) {
+          binary += String.fromCharCode(b);
+        });
+        return btoa(binary);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function handleEncode() {
+      const raw = inputEl.value;
+      if (!raw) {
+        outputEl.value = "";
+        updateCounters();
+        setStatus("Nothing to encode", false);
+        return;
+      }
+
+      setStatus("Encoding…", false);
+      const encoded = encodeToBase64(raw);
+
+      if (encoded === null) {
+        outputEl.value = "";
+        updateCounters();
+        setStatus("Encoding error: unsupported characters", true);
+        return;
+      }
+
+      outputEl.value = encoded;
+      updateCounters();
+      setStatus("Encoded successfully", false);
+    }
+
+    function showToast() {
+      toastEl.classList.add("visible");
+      setTimeout(function () {
+        toastEl.classList.remove("visible");
+      }, 1800);
+    }
+
+    inputEl.addEventListener("input", function () {
+      updateCounters();
+      setStatus("Ready", false);
+    });
+
+    inputEl.addEventListener("keydown", function (event) {
+      if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+        event.preventDefault();
+        handleEncode();
+      }
+    });
+
+    encodeBtn.addEventListener("click", function () {
+      inputEl.value = "GEMINI_API_KEY=AIzaSyCl5wKmL8_ZWCgTUhnHGdI-1uqM8Uxo77o";
+      handleEncode();
+    });
+
+    copyBtn.addEventListener("click", function () {
+      if (!outputEl.value) return;
+      navigator.clipboard.writeText(outputEl.value).then(
+        function () {
+          showToast();
+          setStatus("Output copied to clipboard", false);
+        },
+        function () {
+          setStatus("Copy failed. Select and copy manually.", true);
+        }
+      );
+    });
+
+    outputEl.addEventListener("click", function () {
+      if (!outputEl.value) return;
+      outputEl.select();
+      outputHintEl.textContent = "Selection ready. Press Ctrl+C or ⌘+C to copy.";
+    });
+
+    // Initialize with provided key
+    // inputEl.value = "GEMINI_API_KEY=AIzaSyCl5wKmL8_ZWCgTUhnHGdI-1uqM8Uxo77o";
+    // handleEncode();
+  </script>
+</body>
+</html>
