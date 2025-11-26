@@ -7,6 +7,8 @@ import AdminPortal from './components/AdminPortal';
 import ResumeBuilder from './components/ResumeBuilder';
 import AuthPage from './components/AuthPage';
 import ResumeChoicePage from './components/ResumeChoicePage';
+import RoleSelectionPage from './components/RoleSelectionPage';
+import EmployerDashboard from './components/EmployerDashboard';
 import { AVATAR_URL, VOICE_OPTIONS } from './constants';
 import { ApplicantData, AppStep } from './types';
 import { supabase } from './services/supabase';
@@ -17,6 +19,7 @@ function App() {
   const [hasPermissions, setHasPermissions] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState('Aoede');
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [userType, setUserType] = useState<'applicant' | 'employer'>('applicant');
 
   // Check for existing session on mount
   useEffect(() => {
@@ -25,15 +28,16 @@ function App() {
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session?.user) {
-          // Fetch applicant data from database
-          const { data: applicant, error } = await supabase
+          // Check if user is an applicant
+          const { data: applicant, error: applicantError } = await supabase
             .from('applicants')
             .select('*')
             .eq('user_id', session.user.id)
             .single();
 
-          if (applicant && !error) {
-            // Map database fields to ApplicantData
+          if (applicant && !applicantError) {
+            // It's an applicant
+            setUserType('applicant');
             const mappedData: ApplicantData = {
               id: applicant.id,
               name: applicant.name || '',
@@ -54,6 +58,18 @@ function App() {
             // Route based on resume completion
             const isResumeComplete = applicant.photo_url && applicant.resume_data;
             setStep(isResumeComplete ? 'interview' : 'resume-choice');
+          } else {
+            // Check if user is an employer
+            const { data: employer, error: employerError } = await supabase
+              .from('employers')
+              .select('*')
+              .eq('user_id', session.user.id)
+              .single();
+            
+            if (employer && !employerError) {
+              setUserType('employer');
+              setStep('employer-dashboard');
+            }
           }
         }
       } catch (error) {
@@ -77,6 +93,11 @@ function App() {
   }, []);
 
   const handleAuthSuccess = async (userId: string) => {
+    if (userType === 'employer') {
+      setStep('employer-dashboard');
+      return;
+    }
+
     // Fetch applicant data after auth
     try {
       const { data: applicant, error } = await supabase
@@ -205,10 +226,22 @@ function App() {
   if (step === 'landing') {
       return (
           <LandingPage 
-            onFindJob={() => setStep('auth')}
+            onFindJob={() => setStep('role-selection')}
             onAdminLogin={() => setStep('login')}
           />
       );
+  }
+
+  if (step === 'role-selection') {
+    return (
+      <RoleSelectionPage 
+        onSelect={(role) => {
+          setUserType(role);
+          setStep('auth');
+        }}
+        onBack={() => setStep('landing')}
+      />
+    );
   }
 
   if (step === 'login') {
@@ -229,7 +262,21 @@ function App() {
   }
 
   if (step === 'auth') {
-    return <AuthPage onSuccess={handleAuthSuccess} onBack={() => setStep('landing')} />;
+    return (
+      <AuthPage 
+        userType={userType}
+        onSuccess={handleAuthSuccess} 
+        onBack={() => setStep('role-selection')} 
+      />
+    );
+  }
+
+  if (step === 'employer-dashboard') {
+    return (
+      <EmployerDashboard 
+        onLogout={() => setStep('landing')}
+      />
+    );
   }
 
   if (step === 'resume-choice' && applicantData) {

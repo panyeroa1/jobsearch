@@ -1,21 +1,26 @@
 import React, { useState } from 'react';
 import { supabase } from '../services/supabase';
+import './AuthPage.css';
 
 interface AuthPageProps {
+  userType: 'applicant' | 'employer';
   onSuccess: (userId: string) => void;
   onBack: () => void;
 }
 
 type AuthMode = 'signup' | 'login' | 'reset';
 
-const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, onBack }) => {
+const AuthPage: React.FC<AuthPageProps> = ({ userType, onSuccess, onBack }) => {
   const [mode, setMode] = useState<AuthMode>('login');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
     role: '',
-    experience: ''
+    experience: '',
+    companyName: '',
+    industry: '',
+    website: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,193 +61,254 @@ const AuthPage: React.FC<AuthPageProps> = ({ onSuccess, onBack }) => {
         if (authError) throw authError;
         if (!authData.user) throw new Error('Signup failed');
 
-        // Create applicant record
-        const { error: dbError } = await supabase
-          .from('applicants')
-          .insert([{
-            user_id: authData.user.id,
-            name: formData.name.trim(),
-            email: formData.email.trim(),
-            role: formData.role.trim(),
-            experience: formData.experience.trim()
-          }]);
-
-        if (dbError) throw dbError;
+        // Create record in appropriate table
+        if (userType === 'applicant') {
+          const { error: dbError } = await supabase
+            .from('applicants')
+            .insert([{
+              user_id: authData.user.id,
+              name: formData.name.trim(),
+              email: formData.email.trim(),
+              role: formData.role.trim(),
+              experience: formData.experience.trim()
+            }]);
+          if (dbError) throw dbError;
+        } else {
+          // Employer Signup
+          const { error: dbError } = await supabase
+            .from('employers')
+            .insert([{
+              user_id: authData.user.id,
+              company_name: formData.companyName.trim(),
+              industry: formData.industry.trim(),
+              website: formData.website.trim()
+            }]);
+          if (dbError) throw dbError;
+        }
 
         onSuccess(authData.user.id);
       }
     } catch (err: any) {
       console.error(`${mode} error:`, err);
-      setError(err.message || 'An error occurred. Please try again.');
+      // Better error message for network issues
+      if (err.message === 'Failed to fetch') {
+        setError('Connection failed. Please check your internet connection or firewall settings.');
+      } else {
+        setError(err.message || 'An error occurred. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const tabs: { id: AuthMode; label: string }[] = [
-    { id: 'login', label: 'Log In' },
-    { id: 'signup', label: 'Sign Up' },
-    { id: 'reset', label: 'Reset' },
-  ];
+  const isEmployer = userType === 'employer';
 
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center p-6 relative overflow-hidden font-sans">
-      {/* Background */}
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0">
-        <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[100px]"></div>
-        <div className="absolute bottom-[-10%] left-[-5%] w-[500px] h-[500px] bg-emerald-600/10 rounded-full blur-[100px]"></div>
-      </div>
-
-      <div className="w-full max-w-md bg-gray-900/80 backdrop-blur-2xl border border-white/10 rounded-3xl p-8 shadow-2xl relative z-10 animate-fade-in">
-        
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h2 className="text-3xl font-bold text-white tracking-tight mb-2">
-            {mode === 'reset' ? 'Reset Password' : mode === 'signup' ? 'Create Account' : 'Welcome Back'}
-          </h2>
-          <p className="text-gray-400 text-sm">
-            {mode === 'reset' ? 'Enter your email to receive a reset link' : mode === 'signup' ? 'Sign up to start your AI interview' : 'Log in to continue'}
-          </p>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex bg-gray-800/50 rounded-xl p-1 mb-6">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => {
-                setMode(tab.id);
-                setError(null);
-                setResetSent(false);
-              }}
-              className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition-all ${
-                mode === tab.id
-                  ? 'bg-white text-black shadow-lg'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {error && (
-          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-xl text-red-400 text-sm">
-            {error}
-          </div>
-        )}
-
-        {resetSent && (
-          <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/50 rounded-xl text-emerald-400 text-sm">
-            Password reset email sent! Check your inbox.
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-5">
-          
-          {/* Signup Fields */}
-          {mode === 'signup' && (
-            <>
-              <div className="space-y-2">
-                <label htmlFor="name" className="block text-sm font-medium text-gray-300">Full Name</label>
-                <input
-                  type="text"
-                  id="name"
-                  required
-                  className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 text-white placeholder-gray-500 outline-none transition-all"
-                  placeholder="e.g. Jane Doe"
-                  value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
-                />
+    <section className="fxt-template-animation fxt-template-layout33 loaded">
+      <div className="fxt-content-wrap">
+        <div className="fxt-heading-content">
+          <div className="fxt-inner-wrap fxt-transformX-R-50 fxt-transition-delay-3">
+            <div className="fxt-transformX-R-50 fxt-transition-delay-10">
+              <div className="fxt-logo">
+                <h1 className="text-4xl font-bold text-white tracking-tighter">Match-It</h1>
               </div>
-
-              <div className="space-y-2">
-                <label htmlFor="role" className="block text-sm font-medium text-gray-300">Target Position</label>
-                <input
-                  type="text"
-                  id="role"
-                  required
-                  className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 text-white placeholder-gray-500 outline-none transition-all"
-                  placeholder="e.g. Senior Frontend Engineer"
-                  value={formData.role}
-                  onChange={(e) => setFormData({...formData, role: e.target.value})}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label htmlFor="experience" className="block text-sm font-medium text-gray-300">Brief Experience</label>
-                <textarea
-                  id="experience"
-                  rows={3}
-                  required
-                  className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 text-white placeholder-gray-500 outline-none transition-all resize-none"
-                  placeholder="Key skills and experience..."
-                  value={formData.experience}
-                  onChange={(e) => setFormData({...formData, experience: e.target.value})}
-                />
-              </div>
-            </>
-          )}
-
-          {/* Email Field (all modes) */}
-          <div className="space-y-2">
-            <label htmlFor="email" className="block text-sm font-medium text-gray-300">Email Address</label>
-            <input
-              type="email"
-              id="email"
-              required
-              className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 text-white placeholder-gray-500 outline-none transition-all"
-              placeholder="you@example.com"
-              value={formData.email}
-              onChange={(e) => setFormData({...formData, email: e.target.value})}
-            />
-          </div>
-
-          {/* Password Field (login & signup) */}
-          {mode !== 'reset' && (
-            <div className="space-y-2">
-              <label htmlFor="password" className="block text-sm font-medium text-gray-300">Password</label>
-              <input
-                type="password"
-                id="password"
-                required
-                minLength={6}
-                className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 text-white placeholder-gray-500 outline-none transition-all"
-                placeholder={mode === 'signup' ? 'Create password (min 6 chars)' : 'Enter your password'}
-                value={formData.password}
-                onChange={(e) => setFormData({...formData, password: e.target.value})}
-              />
             </div>
-          )}
+            <div className="fxt-transformX-R-50 fxt-transition-delay-10">
+              <div className="fxt-middle-content">
+                <div className="fxt-sub-title">Welcome to {isEmployer ? 'Employer Portal' : 'Applicant Portal'}</div>
+                <h1 className="fxt-main-title">{isEmployer ? 'Hire Top Talent.' : 'Find Your Dream Job.'}</h1>
+                <p className="fxt-description">
+                  {isEmployer 
+                    ? 'Connect with the best candidates and streamline your hiring process.' 
+                    : 'Experience the future of interviewing with our AI-powered platform.'}
+                </p>
+              </div>
+            </div>
+            <div className="fxt-transformX-R-50 fxt-transition-delay-10">
+              <div className="fxt-switcher-description">
+                {mode === 'login' ? "Don't have an account?" : "Already have an account?"}
+                <button 
+                  onClick={() => {
+                    setMode(mode === 'login' ? 'signup' : 'login');
+                    setError(null);
+                    setResetSent(false);
+                  }}
+                  className="fxt-switcher-text ml-2"
+                >
+                  {mode === 'login' ? 'Register' : 'Log In'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="fxt-form-content">
+          <div className="fxt-main-form">
+            <div className="fxt-inner-wrap fxt-opacity fxt-transition-delay-13">
+              <h2 className="fxt-page-title">
+                {mode === 'reset' ? 'Reset Password' : mode === 'signup' ? 'Create Account' : 'Log In'}
+              </h2>
+              <p className="fxt-description">
+                {mode === 'reset' ? 'Enter your email to receive a reset link' : mode === 'signup' ? 'Sign up to get started' : 'Log in to continue'}
+              </p>
+              
+              {error && (
+                <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm">
+                  {error}
+                </div>
+              )}
 
-          {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3.5 px-6 bg-white text-black font-bold rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all duration-200 text-base flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? (
-              <>
-                <div className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin"></div>
-                {mode === 'reset' ? 'Sending...' : mode === 'signup' ? 'Creating Account...' : 'Logging in...'}
-              </>
-            ) : (
-              <>
-                {mode === 'reset' ? 'Send Reset Link' : mode === 'signup' ? 'Create Account' : 'Log In'}
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
-              </>
-            )}
-          </button>
-        </form>
+              {resetSent && (
+                <div className="mb-6 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg text-sm">
+                  Password reset email sent! Check your inbox.
+                </div>
+              )}
 
-        {/* Back Button */}
-        <div className="mt-6 pt-6 border-t border-gray-800 text-center">
-          <button onClick={onBack} className="text-sm text-gray-500 hover:text-white transition-colors">
-            ← Back to Home
-          </button>
+              <form onSubmit={handleSubmit}>
+                {/* Signup Fields */}
+                {mode === 'signup' && (
+                  <>
+                    {isEmployer ? (
+                      // Employer Fields
+                      <>
+                        <div className="form-group">
+                          <label htmlFor="companyName" className="fxt-label">Company Name</label>
+                          <input
+                            type="text"
+                            id="companyName"
+                            className="form-control"
+                            placeholder="e.g. Acme Corp"
+                            required
+                            value={formData.companyName}
+                            onChange={(e) => setFormData({...formData, companyName: e.target.value})}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label htmlFor="industry" className="fxt-label">Industry</label>
+                          <input
+                            type="text"
+                            id="industry"
+                            className="form-control"
+                            placeholder="e.g. Technology"
+                            required
+                            value={formData.industry}
+                            onChange={(e) => setFormData({...formData, industry: e.target.value})}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label htmlFor="website" className="fxt-label">Website (Optional)</label>
+                          <input
+                            type="url"
+                            id="website"
+                            className="form-control"
+                            placeholder="https://example.com"
+                            value={formData.website}
+                            onChange={(e) => setFormData({...formData, website: e.target.value})}
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      // Applicant Fields
+                      <>
+                        <div className="form-group">
+                          <label htmlFor="name" className="fxt-label">Full Name</label>
+                          <input
+                            type="text"
+                            id="name"
+                            className="form-control"
+                            placeholder="e.g. Jane Doe"
+                            required
+                            value={formData.name}
+                            onChange={(e) => setFormData({...formData, name: e.target.value})}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label htmlFor="role" className="fxt-label">Target Position</label>
+                          <input
+                            type="text"
+                            id="role"
+                            className="form-control"
+                            placeholder="e.g. Senior Frontend Engineer"
+                            required
+                            value={formData.role}
+                            onChange={(e) => setFormData({...formData, role: e.target.value})}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label htmlFor="experience" className="fxt-label">Brief Experience</label>
+                          <textarea
+                            id="experience"
+                            rows={3}
+                            className="form-control"
+                            placeholder="Key skills and experience..."
+                            required
+                            value={formData.experience}
+                            onChange={(e) => setFormData({...formData, experience: e.target.value})}
+                            style={{ height: 'auto', minHeight: '80px' }}
+                          />
+                        </div>
+                      </>
+                    )}
+                  </>
+                )}
+
+                <div className="form-group">
+                  <label htmlFor="email" className="fxt-label">Email Address</label>
+                  <input
+                    type="email"
+                    id="email"
+                    className="form-control"
+                    placeholder="Enter your email"
+                    required
+                    value={formData.email}
+                    onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  />
+                </div>
+
+                {mode !== 'reset' && (
+                  <div className="form-group">
+                    <label htmlFor="password" className="fxt-label">Password</label>
+                    <input
+                      id="password"
+                      type="password"
+                      className="form-control"
+                      placeholder="Enter Password"
+                      required
+                      minLength={6}
+                      value={formData.password}
+                      onChange={(e) => setFormData({...formData, password: e.target.value})}
+                    />
+                  </div>
+                )}
+
+                {mode === 'login' && (
+                  <div className="form-group">
+                    <button 
+                      type="button" 
+                      onClick={() => setMode('reset')}
+                      className="fxt-switcher-text"
+                    >
+                      Forgot Password?
+                    </button>
+                  </div>
+                )}
+
+                <div className="form-group mb-3">
+                  <button type="submit" className="fxt-btn-fill" disabled={loading}>
+                    {loading ? 'Please wait...' : (mode === 'reset' ? 'Send Reset Link' : mode === 'signup' ? 'Register' : 'Log in')}
+                  </button>
+                </div>
+              </form>
+              
+              <div className="fxt-divider-text mt-8">
+                <button onClick={onBack} className="text-gray-500 hover:text-gray-700 text-sm">
+                  ← Back to Role Selection
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 };
 

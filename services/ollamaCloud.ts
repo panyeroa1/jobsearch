@@ -1,7 +1,7 @@
 // Ollama Cloud API Service for Resume Parsing
 // Using kimi-k2-thinking model to extract structured data from resumes
 
-const OLLAMA_API_KEY = import.meta.env.VITE_OLLAMA_CLOUD_API_KEY;
+const OLLAMA_API_KEY = import.meta.env.EBURON_CLOUD_API_KEY;
 const OLLAMA_ENDPOINT = 'http://localhost:11434/api/generate'; // Local Ollama
 const MODEL_NAME = 'kimi-k2-thinking:cloud';
 
