@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import InterviewSession from './components/InterviewSession';
 import ApplicantForm from './components/ApplicantForm';
 import LandingPage from './components/LandingPage';
@@ -7,12 +7,72 @@ import AdminPortal from './components/AdminPortal';
 import ResumeBuilder from './components/ResumeBuilder';
 import { AVATAR_URL, VOICE_OPTIONS } from './constants';
 import { ApplicantData, AppStep } from './types';
+import { supabase } from './services/supabase';
 
 function App() {
   const [step, setStep] = useState<AppStep>('landing');
   const [applicantData, setApplicantData] = useState<ApplicantData | null>(null);
   const [hasPermissions, setHasPermissions] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState('Aoede');
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  // Check for existing session on mount
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session?.user) {
+          // Fetch applicant data from database
+          const { data: applicant, error } = await supabase
+            .from('applicants')
+            .select('*')
+            .eq('user_id', session.user.id)
+            .single();
+
+          if (applicant && !error) {
+            // Map database fields to ApplicantData
+            const mappedData: ApplicantData = {
+              id: applicant.id,
+              name: applicant.name || '',
+              email: applicant.email || '',
+              role: applicant.role || '',
+              experience: applicant.experience || '',
+              photoUrl: applicant.photo_url,
+              phone: applicant.resume_data?.phone,
+              address: applicant.resume_data?.address,
+              education: applicant.resume_data?.education,
+              skills: applicant.resume_data?.skills,
+              summary: applicant.resume_data?.summary,
+              createdAt: applicant.created_at ? new Date(applicant.created_at).getTime() : Date.now()
+            };
+
+            setApplicantData(mappedData);
+
+            // Route based on resume completion
+            const isResumeComplete = applicant.photo_url && applicant.resume_data;
+            setStep(isResumeComplete ? 'interview' : 'resume-builder');
+          }
+        }
+      } catch (error) {
+        console.error('Session check error:', error);
+      } finally {
+        setIsCheckingAuth(false);
+      }
+    };
+
+    checkSession();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        setApplicantData(null);
+        setStep('landing');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const handleFormSubmit = (data: ApplicantData) => {
     setApplicantData(data);
@@ -57,6 +117,18 @@ function App() {
   };
 
   // --- ROUTING ---
+
+  // Show loading while checking auth
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <div className="text-white text-center space-y-4">
+          <div className="w-12 h-12 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin mx-auto"></div>
+          <p className="text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (step === 'landing') {
       return (

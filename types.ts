@@ -29,7 +29,7 @@ export interface ApplicantData {
   }>;
   skills?: string[];
   summary?: string;
-  timestamp: number;
+  createdAt?: number; // Maps to created_at in database
 }
 
 export interface TranscriptItem {

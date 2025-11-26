@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ApplicantData } from '../types';
+import { supabase } from '../services/supabase';
 
 interface ApplicantFormProps {
   onSubmit: (data: ApplicantData) => void;
@@ -10,26 +11,71 @@ const ApplicantForm: React.FC<ApplicantFormProps> = ({ onSubmit, onBack }) => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    password: '',
     role: '',
     experience: ''
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+    
     if (
         formData.name.trim() && 
         formData.role.trim() && 
         formData.email.trim() &&
+        formData.password.trim() &&
         formData.experience.trim()
     ) {
-      onSubmit({
-          id: crypto.randomUUID(),
+      setLoading(true);
+      try {
+        // 1. Sign Up
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email: formData.email.trim(),
+          password: formData.password.trim(),
+        });
+
+        if (authError) throw authError;
+        if (!authData.user) throw new Error('No user returned from Supabase');
+
+        // 2. Create Applicant Record
+        const applicantData = {
+          id: crypto.randomUUID(), // Local ID for UI
+          user_id: authData.user.id,
           name: formData.name.trim(),
           email: formData.email.trim(),
           role: formData.role.trim(),
           experience: formData.experience.trim(),
-          timestamp: Date.now()
-      });
+          createdAt: Date.now()
+        };
+
+        const { error: dbError } = await supabase
+          .from('applicants')
+          .insert([{
+            user_id: authData.user.id,
+            name: formData.name.trim(),
+            email: formData.email.trim(),
+            role: formData.role.trim(),
+            experience: formData.experience.trim()
+          }]);
+
+        if (dbError) throw dbError;
+
+        // Add createdAt for local UI
+        const localApplicantData = {
+          ...applicantData,
+          createdAt: Date.now()
+        };
+
+        onSubmit(localApplicantData);
+      } catch (err: any) {
+        console.error('Error submitting application:', err);
+        setError(err.message || 'An error occurred. Please try again.');
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -50,6 +96,12 @@ const ApplicantForm: React.FC<ApplicantFormProps> = ({ onSubmit, onBack }) => {
             </div>
             <div className="hidden md:block w-12 h-12 bg-gradient-to-br from-emerald-400 to-blue-500 rounded-full opacity-80"></div>
         </div>
+
+        {error && (
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-xl text-red-400 text-sm">
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-8">
           
@@ -79,6 +131,20 @@ const ApplicantForm: React.FC<ApplicantFormProps> = ({ onSubmit, onBack }) => {
                   onChange={(e) => setFormData({...formData, email: e.target.value})}
                 />
               </div>
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="password" className="block text-sm font-medium text-gray-300">Password</label>
+            <input
+              type="password"
+              id="password"
+              required
+              minLength={6}
+              className="w-full px-4 py-3.5 bg-gray-800/50 border border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 text-white placeholder-gray-500 outline-none transition-all"
+              placeholder="Create a password (min 6 chars)"
+              value={formData.password}
+              onChange={(e) => setFormData({...formData, password: e.target.value})}
+            />
           </div>
 
           <div className="space-y-2">
@@ -116,10 +182,11 @@ const ApplicantForm: React.FC<ApplicantFormProps> = ({ onSubmit, onBack }) => {
           <div className="pt-4">
               <button
                 type="submit"
-                className="w-full py-4 px-6 bg-white text-black font-bold rounded-xl shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] hover:scale-[1.01] transition-all duration-200 text-lg flex items-center justify-center gap-2 group"
+                disabled={loading}
+                className="w-full py-4 px-6 bg-white text-black font-bold rounded-xl shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] hover:scale-[1.01] transition-all duration-200 text-lg flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Continue to Resume Builder
-                <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+                {loading ? 'Creating Account...' : 'Continue to Resume Builder'}
+                {!loading && <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>}
               </button>
           </div>
         </form>

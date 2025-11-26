@@ -247,7 +247,7 @@ const AdminPortal: React.FC<AdminPortalProps> = ({ onLogout }) => {
                                     {report.recommendation}
                                 </span>
                                 <span className="text-[10px] text-gray-500">
-                                    {new Date(report.applicant.timestamp).toLocaleDateString()}
+                                    {new Date(report.applicant.createdAt || 0).toLocaleDateString()}
                                 </span>
                             </div>
                         </button>
@@ -424,6 +424,7 @@ const AdminPortal: React.FC<AdminPortalProps> = ({ onLogout }) => {
                                 <label className="block text-sm font-medium text-gray-400 mb-2">Department</label>
                                 <input 
                                     type="text" 
+                                    aria-label="Department"
                                     className="w-full bg-gray-900/50 border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-emerald-500/50 outline-none"
                                     value={newJob.department}
                                     onChange={e => setNewJob({...newJob, department: e.target.value})}
@@ -433,6 +434,7 @@ const AdminPortal: React.FC<AdminPortalProps> = ({ onLogout }) => {
                                 <label className="block text-sm font-medium text-gray-400 mb-2">Location</label>
                                 <input 
                                     type="text" 
+                                    aria-label="Location"
                                     className="w-full bg-gray-900/50 border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-emerald-500/50 outline-none"
                                     value={newJob.location}
                                     onChange={e => setNewJob({...newJob, location: e.target.value})}
@@ -441,6 +443,7 @@ const AdminPortal: React.FC<AdminPortalProps> = ({ onLogout }) => {
                             <div>
                                 <label className="block text-sm font-medium text-gray-400 mb-2">Type</label>
                                 <select 
+                                    aria-label="Job Type"
                                     className="w-full bg-gray-900/50 border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-emerald-500/50 outline-none"
                                     value={newJob.type}
                                     onChange={e => setNewJob({...newJob, type: e.target.value as any})}
@@ -466,6 +469,7 @@ const AdminPortal: React.FC<AdminPortalProps> = ({ onLogout }) => {
                                 <label className="block text-sm font-medium text-gray-400 mb-2">Description</label>
                                 <textarea 
                                     rows={6}
+                                    aria-label="Job Description"
                                     className="w-full bg-gray-900/50 border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-emerald-500/50 outline-none resize-none"
                                     value={newJob.description}
                                     onChange={e => setNewJob({...newJob, description: e.target.value})}
