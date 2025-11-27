@@ -12,7 +12,8 @@ interface InterviewSessionProps {
 
 const InterviewSession: React.FC<InterviewSessionProps> = ({ onEndCall, applicantData, voiceName }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const barsRef = useRef<(HTMLDivElement | null)[]>([]);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
   const [micVolume, setMicVolume] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
@@ -69,6 +70,89 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({ onEndCall, applican
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applicantData]);
 
+  // Visualizer Animation Loop
+  useEffect(() => {
+    if (!canvasRef.current || !client) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animationFrameId: number;
+    const analyser = client.getOutputAnalyser();
+    
+    // Buffer for frequency data
+    const dataArray = new Uint8Array(analyser ? analyser.frequencyBinCount : 0);
+
+    const draw = () => {
+        if (!analyser) {
+             animationFrameId = requestAnimationFrame(draw);
+             return;
+        }
+
+        analyser.getByteFrequencyData(dataArray);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (isAiSpeaking) {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const radius = 100; // Base radius matching approx avatar size
+
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = 'rgba(16, 185, 129, 0.6)'; // Emerald color
+
+            // Draw radial bars
+            const barCount = 40;
+            const step = (Math.PI * 2) / barCount;
+            
+            for (let i = 0; i < barCount; i++) {
+                // Focus on lower-mid frequencies for voice visualization
+                const dataIndex = Math.floor((i / barCount) * (analyser.frequencyBinCount / 2));
+                const value = dataArray[dataIndex] || 0;
+                
+                // Scale value to height (max 60px)
+                const barHeight = (value / 255) * 60;
+                
+                // Only draw if there is sound
+                if (barHeight > 2) {
+                    const angle = i * step;
+                    
+                    // Start from radius
+                    const x1 = centerX + Math.cos(angle) * radius;
+                    const y1 = centerY + Math.sin(angle) * radius;
+                    
+                    // End point
+                    const x2 = centerX + Math.cos(angle) * (radius + barHeight);
+                    const y2 = centerY + Math.sin(angle) * (radius + barHeight);
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(x1, y1);
+                    ctx.lineTo(x2, y2);
+                    ctx.stroke();
+                }
+            }
+            
+            // Optional: Inner glow based on overall loudness
+            const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+            if (average > 10) {
+                 ctx.beginPath();
+                 ctx.arc(centerX, centerY, radius + 5, 0, Math.PI * 2);
+                 ctx.fillStyle = `rgba(16, 185, 129, ${Math.min(0.2, average / 200)})`;
+                 ctx.fill();
+            }
+        }
+
+        animationFrameId = requestAnimationFrame(draw);
+    };
+
+    draw();
+
+    return () => {
+        cancelAnimationFrame(animationFrameId);
+    };
+  }, [client, isAiSpeaking]);
+
+
   const handleEndCall = async () => {
     if (!client) {
         onEndCall();
@@ -113,38 +197,37 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({ onEndCall, applican
       )
   }
 
-  useEffect(() => {
-      barsRef.current.forEach((bar, index) => {
-          if (bar) {
-              const i = index + 1;
-              const height = `${Math.min(100, Math.max(20, micVolume * 100 * (i * 0.5)))}%`;
-              bar.style.setProperty('--bar-height', height);
-          }
-      });
-  }, [micVolume]);
-
   return (
     <div className="relative w-full h-full flex flex-col bg-gray-900">
       
       {/* --- Main Avatar View (Beatrice) --- */}
       <div className="flex-1 relative flex items-center justify-center overflow-hidden">
-        <img 
-            src={OFFICE_BACKGROUND_URL}
-            alt=""
-            className="absolute inset-0 w-full h-full object-cover"
-        />
+        <div 
+            className="absolute inset-0 bg-cover bg-center"
+            style={{ backgroundImage: `url(${OFFICE_BACKGROUND_URL})` }}
+        >
           <div className="absolute inset-0 bg-gray-900/30 backdrop-blur-[2px]"></div>
-
+        </div>
         
-        <div className="relative z-10 flex flex-col items-center">
-            <div className={`relative w-40 h-40 sm:w-56 sm:h-56 rounded-full border-4 shadow-2xl overflow-hidden transition-all duration-300 ${isAiSpeaking ? 'border-emerald-500 speaking-ring' : 'border-gray-700'}`}>
+        <div className="relative z-10 flex flex-col items-center justify-center">
+            
+            {/* Visualizer Canvas */}
+            <canvas 
+                ref={canvasRef}
+                width={500}
+                height={500}
+                className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none z-0"
+            />
+
+            <div className={`relative w-40 h-40 sm:w-56 sm:h-56 rounded-full border-4 shadow-2xl overflow-hidden transition-all duration-300 z-10 ${isAiSpeaking ? 'border-emerald-500' : 'border-gray-700'}`}>
                 <img 
                     src={AVATAR_URL} 
                     alt="Beatrice HR" 
                     className="w-full h-full object-cover"
                 />
             </div>
-            <div className="mt-6 text-center bg-black/40 backdrop-blur-md px-6 py-3 rounded-xl border border-white/10 shadow-xl">
+
+            <div className="mt-6 text-center bg-black/40 backdrop-blur-md px-6 py-3 rounded-xl border border-white/10 shadow-xl z-10">
                 <h2 className="text-2xl font-semibold text-white drop-shadow-md">Beatrice</h2>
                 <p className="text-emerald-300 font-medium drop-shadow-sm">HR Manager • Eburon Jobs Outsource</p>
                 {status === 'connecting' && <p className="text-gray-300 text-sm mt-2 animate-pulse">Connecting secure line...</p>}
@@ -165,8 +248,8 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({ onEndCall, applican
                     {[1, 2, 3].map(i => (
                         <div 
                             key={i} 
-                            ref={el => { barsRef.current[i-1] = el; }}
-                            className="w-1 bg-green-500 rounded-full transition-all duration-75 h-[var(--bar-height)]"
+                            className="w-1 bg-green-500 rounded-full transition-all duration-75"
+                            style={{ height: `${Math.min(100, Math.max(20, micVolume * 100 * (i * 0.5)))}%` }}
                         />
                     ))}
                 </div>
@@ -175,7 +258,7 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({ onEndCall, applican
       </div>
 
       {/* --- Controls --- */}
-      <div className="bg-gray-800/90 backdrop-blur-md p-6 rounded-t-3xl border-t border-gray-700 safe-area-bottom md:hidden">
+      <div className="bg-gray-800/90 backdrop-blur-md p-6 rounded-t-3xl border-t border-gray-700 safe-area-bottom z-30">
         <div className="flex justify-center items-center gap-8">
             <button 
                 onClick={() => setIsMuted(!isMuted)}
@@ -201,44 +284,10 @@ const InterviewSession: React.FC<InterviewSessionProps> = ({ onEndCall, applican
             <button 
                 onClick={handleEndCall}
                 className="p-5 rounded-full bg-red-500 hover:bg-red-600 text-white shadow-lg transform hover:scale-105 transition-all"
-                title="End Call"
-                aria-label="End Call"
             >
                 <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 8l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M5 3a2 2 0 00-2 2v1c0 8.284 6.716 15 15 15h1a2 2 0 002-2v-3.28a1 1 0 00-.684-.948l-4.493-1.498a1 1 0 00-1.21.502l-1.13 2.257a11.042 11.042 0 01-5.516-5.517l2.257-1.128a1 1 0 00.502-1.21L9.228 3.683A1 1 0 008.279 3H5z" /></svg>
             </button>
         </div>
-      </div>
-
-      {/* --- Desktop Floating Controls --- */}
-      <div className="hidden md:flex fixed bottom-8 left-1/2 transform -translate-x-1/2 items-center gap-6 z-50">
-        <button 
-            onClick={() => setIsMuted(!isMuted)}
-            className={`p-6 rounded-full shadow-2xl transition-all transform hover:scale-110 ${isMuted ? 'bg-red-500 text-white' : 'bg-indigo-600 text-white'}`}
-        >
-            {isMuted ? (
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3l18 18" /></svg>
-            ) : (
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
-            )}
-        </button>
-
-        <button
-            onClick={handleRaiseHand}
-            className="p-4 rounded-full bg-gray-700/80 hover:bg-amber-500 text-white backdrop-blur-md shadow-xl transition-all"
-            title="I have a question"
-        >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11" />
-            </svg>
-        </button>
-
-        <button 
-            onClick={handleEndCall}
-            className="p-4 rounded-full bg-gray-700/80 hover:bg-red-600 text-white backdrop-blur-md shadow-xl transition-all"
-            title="End Call"
-        >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 8l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M5 3a2 2 0 00-2 2v1c0 8.284 6.716 15 15 15h1a2 2 0 002-2v-3.28a1 1 0 00-.684-.948l-4.493-1.498a1 1 0 00-1.21.502l-1.13 2.257a11.042 11.042 0 01-5.516-5.517l2.257-1.128a1 1 0 00.502-1.21L9.228 3.683A1 1 0 008.279 3H5z" /></svg>
-        </button>
       </div>
     </div>
   );

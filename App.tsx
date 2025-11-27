@@ -1,180 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import InterviewSession from './components/InterviewSession';
 import ApplicantForm from './components/ApplicantForm';
 import LandingPage from './components/LandingPage';
 import AdminLogin from './components/AdminLogin';
 import AdminPortal from './components/AdminPortal';
-import ResumeBuilder from './components/ResumeBuilder';
-import AuthPage from './components/AuthPage';
-import ResumeChoicePage from './components/ResumeChoicePage';
-import RoleSelectionPage from './components/RoleSelectionPage';
-import EmployerDashboard from './components/EmployerDashboard';
 import { AVATAR_URL, VOICE_OPTIONS } from './constants';
 import { ApplicantData, AppStep } from './types';
-import { supabase } from './services/supabase';
 
 function App() {
   const [step, setStep] = useState<AppStep>('landing');
   const [applicantData, setApplicantData] = useState<ApplicantData | null>(null);
   const [hasPermissions, setHasPermissions] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState('Aoede');
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
-  const [userType, setUserType] = useState<'applicant' | 'employer'>('applicant');
 
-  // Check for existing session on mount
-  useEffect(() => {
-    const checkSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (session?.user) {
-          // Check if user is an applicant
-          const { data: applicant, error: applicantError } = await supabase
-            .from('applicants')
-            .select('*')
-            .eq('user_id', session.user.id)
-            .single();
-
-          if (applicant && !applicantError) {
-            // It's an applicant
-            setUserType('applicant');
-            const mappedData: ApplicantData = {
-              id: applicant.id,
-              name: applicant.name || '',
-              email: applicant.email || '',
-              role: applicant.role || '',
-              experience: applicant.experience || '',
-              photoUrl: applicant.photo_url,
-              phone: applicant.resume_data?.phone,
-              address: applicant.resume_data?.address,
-              education: applicant.resume_data?.education,
-              skills: applicant.resume_data?.skills,
-              summary: applicant.resume_data?.summary,
-              createdAt: applicant.created_at ? new Date(applicant.created_at).getTime() : Date.now()
-            };
-
-            setApplicantData(mappedData);
-
-            // Route based on resume completion
-            const isResumeComplete = applicant.photo_url && applicant.resume_data;
-            setStep(isResumeComplete ? 'interview' : 'resume-choice');
-          } else {
-            // Check if user is an employer
-            const { data: employer, error: employerError } = await supabase
-              .from('employers')
-              .select('*')
-              .eq('user_id', session.user.id)
-              .single();
-            
-            if (employer && !employerError) {
-              setUserType('employer');
-              setStep('employer-dashboard');
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Session check error:', error);
-      } finally {
-        setIsCheckingAuth(false);
-      }
-    };
-
-    checkSession();
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT') {
-        setApplicantData(null);
-        setStep('landing');
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const handleAuthSuccess = async (userId: string) => {
-    if (userType === 'employer') {
-      setStep('employer-dashboard');
-      return;
-    }
-
-    // Fetch applicant data after auth
-    try {
-      const { data: applicant, error } = await supabase
-        .from('applicants')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
-
-      if (applicant && !error) {
-        const mappedData: ApplicantData = {
-          id: applicant.id,
-          name: applicant.name || '',
-          email: applicant.email || '',
-          role: applicant.role || '',
-          experience: applicant.experience || '',
-          photoUrl: applicant.photo_url,
-          phone: applicant.resume_data?.phone,
-          address: applicant.resume_data?.address,
-          education: applicant.resume_data?.education,
-          skills: applicant.resume_data?.skills,
-          summary: applicant.resume_data?.summary,
-          createdAt: applicant.created_at ? new Date(applicant.created_at).getTime() : Date.now()
-        };
-        setApplicantData(mappedData);
-      }
-    } catch (error) {
-      console.error('Error fetching applicant:', error);
-    }
-    setStep('resume-choice');
-  };
-
-  const handleResumeChoice = async (choice: 'upload' | 'build', resumeData?: any) => {
-    if (choice === 'upload' && resumeData && applicantData) {
-      let photoUrl = applicantData.photoUrl;
-
-      // Upload photo if extracted from PDF
-      if (resumeData.photoBlob) {
-        try {
-          const fileName = `avatar_${applicantData.id}_${Date.now()}.jpg`;
-          const { error } = await supabase.storage
-            .from('resumes')
-            .upload(fileName, resumeData.photoBlob);
-          
-          if (!error) {
-            const { data } = supabase.storage
-              .from('resumes')
-              .getPublicUrl(fileName);
-            photoUrl = data.publicUrl;
-          }
-        } catch (e) {
-          console.error('Error uploading extracted photo:', e);
-        }
-      }
-
-      // Merge AI parsed data with existing applicant data
-      const updatedData: ApplicantData = {
-        ...applicantData,
-        name: resumeData.name || applicantData.name,
-        email: resumeData.email || applicantData.email,
-        role: resumeData.role || applicantData.role,
-        experience: resumeData.experience || applicantData.experience,
-        phone: resumeData.phone || applicantData.phone,
-        address: resumeData.location || applicantData.address,
-        summary: resumeData.summary || applicantData.summary,
-        skills: resumeData.skills || applicantData.skills,
-        education: resumeData.education || applicantData.education,
-        photoUrl: photoUrl
-      };
-
-      setApplicantData(updatedData);
-    }
-    setStep('resume-builder');
-  };
-
-  const handleResumeComplete = (data: ApplicantData) => {
+  const handleFormSubmit = (data: ApplicantData) => {
     setApplicantData(data);
-    setStep('interview'); // Transition to Interview
+    setStep('interview'); // Transition state to interview setup
   };
 
   const startCall = async () => {
@@ -211,37 +52,13 @@ function App() {
 
   // --- ROUTING ---
 
-  // Show loading while checking auth
-  if (isCheckingAuth) {
-    return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <div className="text-white text-center space-y-4">
-          <div className="w-12 h-12 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin mx-auto"></div>
-          <p className="text-gray-400">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
   if (step === 'landing') {
       return (
           <LandingPage 
-            onFindJob={() => setStep('role-selection')}
+            onFindJob={() => setStep('applicant-form')}
             onAdminLogin={() => setStep('login')}
           />
       );
-  }
-
-  if (step === 'role-selection') {
-    return (
-      <RoleSelectionPage 
-        onSelect={(role) => {
-          setUserType(role);
-          setStep('auth');
-        }}
-        onBack={() => setStep('landing')}
-      />
-    );
   }
 
   if (step === 'login') {
@@ -261,41 +78,8 @@ function App() {
       );
   }
 
-  if (step === 'auth') {
-    return (
-      <AuthPage 
-        userType={userType}
-        onSuccess={handleAuthSuccess} 
-        onBack={() => setStep('role-selection')} 
-      />
-    );
-  }
-
-  if (step === 'employer-dashboard') {
-    return (
-      <EmployerDashboard 
-        onLogout={() => setStep('landing')}
-      />
-    );
-  }
-
-  if (step === 'resume-choice' && applicantData) {
-    return <ResumeChoicePage onChoice={handleResumeChoice} onBack={() => setStep('auth')} />;
-  }
-
   if (step === 'applicant-form') {
-    // This is now deprecated/optional - keeping for backwards compat if needed
-    return null;
-  }
-
-  if (step === 'resume-builder' && applicantData) {
-      return (
-          <ResumeBuilder 
-            applicantData={applicantData}
-            onNext={handleResumeComplete}
-            onBack={() => setStep('applicant-form')}
-          />
-      );
+    return <ApplicantForm onSubmit={handleFormSubmit} onBack={() => setStep('landing')} />;
   }
 
   // Interview Pre-check

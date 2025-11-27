@@ -6,6 +6,7 @@ import { ApplicantData, TranscriptItem } from '../types';
 export class GeminiLiveClient {
   private inputAudioContext: AudioContext | null = null;
   private outputAudioContext: AudioContext | null = null;
+  private outputAnalyser: AnalyserNode | null = null;
   private videoInterval: number | null = null;
   private session: any = null;
   private nextStartTime = 0;
@@ -39,6 +40,15 @@ export class GeminiLiveClient {
       // Resume contexts if suspended (browser autoplay policy)
       if (this.outputAudioContext && this.outputAudioContext.state === 'suspended') {
         await this.outputAudioContext.resume();
+      }
+
+      // Initialize Analyser for Visualizer
+      if (this.outputAudioContext) {
+          this.outputAnalyser = this.outputAudioContext.createAnalyser();
+          this.outputAnalyser.fftSize = 512;
+          this.outputAnalyser.smoothingTimeConstant = 0.4;
+          // Connect analyser to destination once
+          this.outputAnalyser.connect(this.outputAudioContext.destination);
       }
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -118,6 +128,10 @@ export class GeminiLiveClient {
     }
   }
 
+  getOutputAnalyser(): AnalyserNode | null {
+      return this.outputAnalyser;
+  }
+
   getTranscript(): TranscriptItem[] {
       return this.transcript;
   }
@@ -125,14 +139,12 @@ export class GeminiLiveClient {
   sendText(text: string) {
     if (!this.session) return;
     this.stopAudioPlayback();
-    this.session.send({
-      clientContent: {
-        turns: [{
-          role: 'user',
-          parts: [{ text }]
-        }],
-        turnComplete: true
-      }
+    this.session.sendClientContent({
+      turns: [{
+        role: 'user',
+        parts: [{ text }]
+      }],
+      turnComplete: true
     });
   }
 
@@ -218,7 +230,13 @@ export class GeminiLiveClient {
         
         const outputNode = this.outputAudioContext.createGain();
         source.connect(outputNode);
-        outputNode.connect(this.outputAudioContext.destination);
+        
+        // Connect to Analyser if available, otherwise direct to destination
+        if (this.outputAnalyser) {
+            outputNode.connect(this.outputAnalyser);
+        } else {
+            outputNode.connect(this.outputAudioContext.destination);
+        }
 
         // Schedule next chunk
         const currentTime = this.outputAudioContext.currentTime;
@@ -264,6 +282,7 @@ export class GeminiLiveClient {
     this.outputAudioContext?.close();
     this.inputAudioContext = null;
     this.outputAudioContext = null;
+    this.outputAnalyser = null;
     this.session = null;
   }
 }

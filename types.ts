@@ -18,18 +18,7 @@ export interface ApplicantData {
   email: string;
   role: string;
   experience: string;
-  // Resume Builder Fields
-  photoUrl?: string;
-  phone?: string;
-  address?: string;
-  education?: Array<{
-    school: string;
-    degree: string;
-    year: string;
-  }>;
-  skills?: string[];
-  summary?: string;
-  createdAt?: number; // Maps to created_at in database
+  timestamp: number;
 }
 
 export interface TranscriptItem {
@@ -61,4 +50,4 @@ export interface JobPosting {
   postedAt: number;
 }
 
-export type AppStep = 'landing' | 'login' | 'admin' |  'auth' | 'applicant-form' | 'resume-choice' | 'resume-builder' | 'interview' | 'thank-you' | 'role-selection' | 'employer-dashboard';
+export type AppStep = 'landing' | 'login' | 'admin' | 'applicant-form' | 'interview' | 'thank-you';
